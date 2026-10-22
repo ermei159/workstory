@@ -5,12 +5,14 @@
 ## 当前交付
 
 - Next.js App Router + TypeScript 应用，响应式中文工作台界面。
-- 可交互演示：列表、看板、时间轴切换；任务搜索、阶段筛选、完成状态切换和新增任务。
+- 工作台支持列表、看板和时间轴；配置 Supabase 并登录后，项目和任务从数据库加载。
+- 项目可创建空白项目或毕业设计模板项目，可切换和删除；项目阶段可新增、重命名、排序、设置起止日期及删除。
+- 任务可按项目阶段创建并填写计划截止日期；搜索、筛选和完成状态切换可用。
 - Supabase SSR 登录入口、项目 / 阶段 / 自定义字段 / 任务 API。
 - PostgreSQL schema 覆盖模板、项目、阶段、自定义字段和任务，每张表启用 RLS。
 - 毕业设计模板阶段和示例任务种子数据。
 
-工作台初始使用前端演示数据，未配置 Supabase 时不会写入云端。API 和登录接入 Supabase 后可供扩展；如需上线可交互的数据持久化，下一步把工作台操作绑定到对应 API，并加入完整的阶段、字段编辑器。
+未配置 Supabase 或未登录时，工作台显示本地演示数据；登录后使用 Supabase 中真实项目。自定义字段编辑器、项目模板保存等功能仍可继续扩展。
 
 ## 本地运行
 
@@ -43,6 +45,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 | GET / POST | `/api/projects` | 查询当前用户项目；创建项目，可从模板复制阶段和任务 |
 | PATCH / DELETE | `/api/projects/:id` | 更新、归档字段或删除项目 |
 | POST | `/api/projects/:id/phases` | 添加阶段 |
+| PATCH / DELETE | `/api/phases/:id` | 编辑阶段名称、顺序、起止日期或删除阶段 |
 | POST | `/api/projects/:id/fields` | 添加自定义字段 |
 | POST | `/api/projects/:id/tasks` | 添加任务 |
 | PATCH / DELETE | `/api/tasks/:id` | 更新或删除任务 |
