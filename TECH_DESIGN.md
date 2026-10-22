@@ -14,6 +14,8 @@
 
 任务状态保存为 `not_started`、`in_progress`、`completed`、`cancelled`。逾期状态由 `due_date < 当前日期 AND status 未完成` 推导，不重复保存冗余状态。完成后写 `completed_at`。
 
+时间轴使用实际日期计算阶段起止位置和宽度，横轴以真实年月刻度标注。没有填写阶段日期的毕业设计演示计划按当前日期生成相对日期；数据库中已有阶段起止日期时优先使用已保存日期。
+
 ## API
 
 Route Handlers 从 Supabase SSR cookie session 读取已认证用户，并使用 anon/publishable key 请求 Supabase。数据库 RLS 再次限制数据行访问，不能只依赖前端隐藏按钮。项目模板创建流程从模板配置复制阶段和起始任务。
