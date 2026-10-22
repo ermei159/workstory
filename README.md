@@ -49,16 +49,14 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 
 API 通过 Supabase 用户会话鉴权，RLS 是最终的数据访问边界。具体接口请求字段可见 Route Handler 源码。
 
-## 新建独立 GitHub 仓库
+## GitHub 仓库
 
-本目录有自己的 Git 仓库，与个人作品集项目分开。创建空的 GitHub 仓库后，在本目录运行：
+本项目使用独立仓库：[ermei159/workstory](https://github.com/ermei159/workstory)。当前 `main` 分支已推送。后续提交后，在本目录执行：
 
 ```bash
-git remote add origin https://github.com/<你的用户名>/workflow-project-manager.git
 git add .
-git commit -m "feat: start workflow project manager"
-git branch -M main
-git push -u origin main
+git commit -m "feat: describe your change"
+git push
 ```
 
 ## 文档
