@@ -18,11 +18,14 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const body = await request.json().catch(() => null) as { name?: string; description?: string; template_id?: string | null } | null;
   if (!body?.name?.trim()) return NextResponse.json({ error: "项目名称不能为空" }, { status: 400 });
+  const templateResult = body.template_id
+    ? await supabase.from("templates").select("config").eq("id", body.template_id).single()
+    : null;
+  if (templateResult?.error) return NextResponse.json({ error: `读取项目模板失败：${templateResult.error.message}` }, { status: 400 });
   const { data, error } = await supabase.from("projects").insert({ owner_id: user.id, name: body.name.trim(), description: body.description?.trim() ?? "", template_id: body.template_id ?? null }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (body.template_id) {
-    const { data: template } = await supabase.from("templates").select("config").eq("id", body.template_id).single();
-    const config = template?.config as { phases?: { name: string; position: number; start_date?: string; due_date?: string }[] } | undefined;
+    const config = templateResult?.data?.config as { phases?: { name: string; position: number; start_date?: string; due_date?: string }[] } | undefined;
     if (config?.phases?.length) {
       const { data: phases, error: phaseError } = await supabase.from("phases").insert(config.phases.map((phase) => ({ ...phase, project_id: data.id }))).select("id, name, position");
       if (phaseError) return NextResponse.json({ error: `项目已创建，但模板阶段写入失败：${phaseError.message}`, data }, { status: 400 });
@@ -37,5 +40,7 @@ export async function POST(request: Request) {
       }
     }
   }
-  return NextResponse.json({ data }, { status: 201 });
+  const { data: project, error: loadError } = await supabase.from("projects").select("*, phases(*), custom_fields(*), tasks(*)").eq("id", data.id).single();
+  if (loadError) return NextResponse.json({ error: `项目已创建，但读取项目详情失败：${loadError.message}`, data }, { status: 500 });
+  return NextResponse.json({ data: project }, { status: 201 });
 }

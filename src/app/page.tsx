@@ -41,13 +41,19 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectError, setProjectError] = useState("");
   const [newStage, setNewStage] = useState(stages[0]);
   const [activeStage, setActiveStage] = useState("全部阶段");
   const [showFilters, setShowFilters] = useState(false);
   const [activePriority, setActivePriority] = useState("全部优先级");
   const [activeStatus, setActiveStatus] = useState("全部状态");
   const [activeDeadline, setActiveDeadline] = useState("全部日期");
+  const [today, setToday] = useState<Date | null>(null);
   const [toast, setToast] = useState("");
+  useEffect(() => { setToday(new Date()); }, []);
   const hydrateProject = useCallback((project: DbProject) => {
     setProjectId(project.id);
     setProjectName(project.name);
@@ -67,11 +73,13 @@ export default function Home() {
     const matchesPriority = activePriority === "全部优先级" || task.priority === activePriority;
     const matchesStatus = activeStatus === "全部状态" || (activeStatus === "已完成" ? task.done : !task.done);
     const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(task.date) ? new Date(`${task.date}T00:00:00`) : null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 7);
-    const matchesDeadline = activeDeadline === "全部日期" || (activeDeadline === "已逾期" ? Boolean(dueDate && !task.done && dueDate < today) : activeDeadline === "未来 7 天" ? Boolean(dueDate && dueDate >= today && dueDate <= nextWeek) : !dueDate);
+    const todayStart = today ? new Date(today) : null;
+    todayStart?.setHours(0, 0, 0, 0);
+    const nextWeek = todayStart ? new Date(todayStart) : null;
+    nextWeek?.setDate(nextWeek.getDate() + 7);
+    const matchesDeadline = activeDeadline === "全部日期" || (activeDeadline === "已逾期" ? Boolean(dueDate && !task.done && todayStart && dueDate < todayStart) : activeDeadline === "未来 7 天" ? Boolean(dueDate && todayStart && nextWeek && dueDate >= todayStart && dueDate <= nextWeek) : !dueDate);
     return matchesStage && matchesQuery && matchesPriority && matchesStatus && matchesDeadline;
-  }), [tasks, activeStage, query, activePriority, activeStatus, activeDeadline]);
+  }), [tasks, activeStage, query, activePriority, activeStatus, activeDeadline, today]);
   const shortDate = (value: string) => value.match(/^\d{4}-\d{2}-\d{2}$/) ? value.slice(5).replace("-", ".") : value;
   const timeline = useMemo(() => {
     const addDays = (offset: number) => { const date = new Date(timelineToday); date.setDate(date.getDate() + offset); return date; };
@@ -91,13 +99,22 @@ export default function Home() {
   const todayPosition = (timelineToday.getTime() - timelineStart.getTime()) / timelineSpan * 100;
   const flash = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2200); };
   const createProject = async () => {
-    const response = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "毕业设计进度管理", description: "从毕业设计模板创建的项目。", template_id: "10000000-0000-4000-8000-000000000001" }) });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) { flash(payload?.error ?? "请先登录并配置 Supabase"); return; }
-    const projects = await fetch("/api/projects").then((result) => result.ok ? result.json() : null).catch(() => null) as { data?: DbProject[] } | null;
-    const created = projects?.data?.find((item) => item.id === payload.data.id);
-    if (created) hydrateProject(created); else { setProjectId(payload.data.id); setProjectName(payload.data.name); }
-    flash("毕业设计项目已从模板创建");
+    if (!newProjectName.trim() || creatingProject) return;
+    setCreatingProject(true);
+    setProjectError("");
+    try {
+      const response = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newProjectName.trim(), description: "从毕业设计模板创建的项目。", template_id: "10000000-0000-4000-8000-000000000001" }) });
+      const payload = await response.json().catch(() => null) as { data?: DbProject; error?: string } | null;
+      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? (response.status === 401 ? "请先登录后再创建项目。" : "项目创建失败，请稍后重试。"));
+      hydrateProject(payload.data);
+      setShowNewProject(false);
+      setNewProjectName("");
+      flash("项目已创建并保存到 Supabase");
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "项目创建失败，请检查网络后重试。");
+    } finally {
+      setCreatingProject(false);
+    }
   };
   const addTask = async () => {
     if (!newTitle.trim()) return;
@@ -125,7 +142,7 @@ export default function Home() {
       <button className={`${styles.navItem} ${styles.navActive}`}><span>▦</span> 项目总览 <kbd>⌘ 1</kbd></button>
       <button className={styles.navItem}><span>◷</span> 我的任务 <b className={styles.count}>4</b></button>
       <button className={styles.navItem}><span>▧</span> 模板库</button>
-      <div className={styles.sideLabel}>最近项目 <button className={styles.plus} onClick={createProject} aria-label="从模板新建项目">＋</button></div>
+      <div className={styles.sideLabel}>最近项目 <button className={styles.plus} onClick={() => { setProjectError(""); setNewProjectName("毕业设计进度管理"); setShowNewProject(true); }} aria-label="新建项目">＋</button></div>
       <button className={`${styles.projectLink} ${styles.projectCurrent}`}><i className={styles.projectDot}/> {projectName} <span>•••</span></button>
       <button className={styles.projectLink}><i className={styles.dotBlue}/> 个人作品集改版</button>
       <button className={styles.projectLink}><i className={styles.dotGold}/> 每周阅读计划</button>
@@ -163,6 +180,7 @@ export default function Home() {
       </div>
     </section>
     {showNew && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowNew(false); }}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="new-task-title"><button className={styles.modalClose} onClick={() => setShowNew(false)} aria-label="关闭">×</button><div className={styles.modalIcon}>＋</div><h2 id="new-task-title">添加一项任务</h2><p>把大目标拆成今天可以开始的一小步。</p><label>任务名称<input autoFocus placeholder="例如：整理研究方法相关文献" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addTask(); }}/></label><label>所属阶段<select value={newStage} onChange={(e) => setNewStage(e.target.value)}>{stages.map((stage) => <option key={stage}>{stage}</option>)}</select></label><div className={styles.modalActions}><button className={styles.outlineButton} onClick={() => setShowNew(false)}>取消</button><button className={styles.primaryButton} onClick={addTask}>创建任务</button></div></section></div>}
+    {showNewProject && <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !creatingProject) setShowNewProject(false); }}><form className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="new-project-title" onSubmit={(event) => { event.preventDefault(); void createProject(); }}><button type="button" className={styles.modalClose} onClick={() => setShowNewProject(false)} aria-label="关闭" disabled={creatingProject}>×</button><div className={styles.modalIcon}>▦</div><h2 id="new-project-title">新建项目</h2><p>创建项目并自动添加毕业设计模板中的阶段和任务。</p><label>项目名称<input autoFocus required maxLength={100} placeholder="例如：毕业设计进度管理" value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)}/></label>{projectError && <div className={styles.errorMessage} role="alert">{projectError}</div>}<div className={styles.modalActions}><button type="button" className={styles.outlineButton} onClick={() => setShowNewProject(false)} disabled={creatingProject}>取消</button><button type="submit" className={styles.primaryButton} disabled={creatingProject || !newProjectName.trim()}>{creatingProject ? "正在创建…" : "创建项目"}</button></div></form></div>}
     {toast && <div className={styles.toast}>✓　{toast}</div>}
   </main>;
 }
